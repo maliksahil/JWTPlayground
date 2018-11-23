@@ -1,0 +1,248 @@
+extends layout
+
+block content
+  .navbar.navbar-inverse.navbar-fixed-top
+    .container
+      .navbar-header
+        button.navbar-toggle(type='button' data-toggle='collapse' data-target='.navbar-collapse')
+          span.icon-bar
+          span.icon-bar
+          span.icon-bar
+        a.navbar-brand(href='index.html') JWT Playground
+  .container.body-content
+    br
+    .panel.panel-default
+      #encodedTokenHeader.panel-heading Enter token below (it never leaves your browser):
+      #encodedToken.panel-body.mono.nowrap(contenteditable='true') #{encodedToken}      
+      #issuingProviderDescription.panel-footer
+    ul.nav.nav-pills
+      li.active(role='presentation')
+        a(href='#decodedTokenTab' data-toggle='tab') Decoded Token
+      li(role='presentation')
+        a(href='#idtoken' data-toggle='tab') Claims
+    .tab-content
+      #decodedTokenTab.tab-pane.active
+        .panel.panel-default
+          #decodedToken.panel-body.wrap.mono
+      #idtoken.tab-pane
+        table.table.table-striped
+          thead
+            tr
+              th.col-sm-1 Claim type
+              th.col-sm-3 Value
+              th.col-sm-8 Notes
+          tbody#idtokentbody
+  script(src='bundles/jqueryc061')
+  script(src='bundles/bootstrap1b68')
+  script.
+    const id_token_url_hash = '#id_token';
+    const access_token_url_hash = '#access_token';
+    const b2cPolicyPrefix = 'b2c_1_';
+    const iefPolicyPrefix = 'b2c_1a_';
+    const iss = 'iss';
+    const tfp = 'tfp';
+    const acr = 'acr';
+    const decodedTokenId = '#decodedToken';
+    const encodedTokenId = '#encodedToken';
+    const idtokentbody = '#idtokentbody';
+    const issuingProviderDescriptionId = '#issuingProviderDescription';
+    const click = 'click';
+    const input = 'input';
+    var jsrsasignLoaded = false;
+    var descriptions = {'b2c_streetAddress':'The street address where the user is located.','aadv1_given_name':'Provides the first or given name of the user, as set on the Azure AD user object.','b2c_country':'The country in which the user is located.','b2c_emails':'Email addresses of the user. These are mutable and might change over time. Therefore, they are not suitable for identifying the user in other databases or applications. The oid or sub claim should be used instead.','aadv2_sub':'The principal about which the token asserts information, such as the user of an app. This value is immutable and cannot be reassigned or reused. It can be used to perform authorization checks safely, such as when the token is used to access a resource, and can be used as a key in database tables. Because the subject is always present in the tokens that Azure AD issues, we recommend using this value in a general-purpose authorization system. The subject is, however, a pairwise identifier - it is unique to a particular application ID. Therefore, if a single user signs into two different apps using two different client IDs, those apps will receive two different values for the subject claim. This may or may not be desired depending on your architecture and privacy requirements.','aadv2_tid':'A GUID that represents the Azure AD tenant that the user is from. For work and school accounts, the GUID is the immutable tenant ID of the organization that the user belongs to. For personal accounts, the value is 9188040d-6c67-4c5b-b112-36a304b66dad. The profile scope is required in order to receive this claim.','aadv2_ver':'The version of the ID token, as defined by Azure AD. For the v2.0 endpoint, the value is 2.0.','aadv2_oid':'The immutable identifier for an object in the Microsoft identity system, in this case, a user account. It can also be used to perform authorization checks safely and as a key in database tables. This ID uniquely identifies the user across applications - two different applications signing in the same user will receive the same value in the oid claim. This means that it can be used when making queries to Microsoft online services, such as the Microsoft Graph. The Microsoft Graph will return this ID as the id property for a given user account. Because the oid allows multiple apps to correlate users, the profile scope is required in order to receive this claim. Note that if a single user exists in multiple tenants, the user will contain a different object ID in each tenant - they are considered different accounts, even though the user logs into each account with the same credentials.','aadv2_nbf':'The time at which the token becomes valid, represented in epoch time. It is usually the same as the issuance time. Your app should use this claim to verify the validity of the token lifetime.','aadv2_iss':'Identifies the security token service (STS) that constructs and returns the token, and the Azure AD tenant in which the user was authenticated. Your app should validate the issuer claim to ensure that the token came from the v2.0 endpoint. It also should use the GUID portion of the claim to restrict the set of tenants that can sign in to the app. The GUID that indicates that the user is a consumer user from a Microsoft account is 9188040d-6c67-4c5b-b112-36a304b66dad.','aadv2_iat':'The time at which the token was issued, represented in epoch time.','aadv2_aud':'Identifies the intended recipient of the token. In ID tokens, the audience is your apps Application ID, assigned to your app in the Microsoft Application Registration Portal. Your app should validate this value, and reject the token if the value does not match.','aadv2_exp':'The time at which the token becomes invalid, represented in epoch time. Your app should use this claim to verify the validity of the token lifetime.','aadv1_scp':'Indicates the impersonation permissions granted to the client application. The default permission is user_impersonation. The owner of the secured resource can register additional values in Azure AD.','aadv1_sub':'Identifies the principal about which the token asserts information, such as the user of an application. This value is immutable and cannot be reassigned or reused, so it can be used to perform authorization checks safely. Because the subject is always present in the tokens the Azure AD issues, we recommended using this value in a general purpose authorization system.','aadv1_tid':'An immutable, non-reusable identifier that identifies the directory tenant that issued the token. You can use this value to access tenant-specific directory resources in a multi-tenant application. For example, you can use this value to identify the tenant in a call to the Graph API.','aadv1_upn':'Stores the user name of the user principal.','aadv1_iss':'Identifies the security token service (STS) that constructs and returns the token. In the tokens that Azure AD returns, the issuer is sts.windows.net. The GUID in the Issuer claim value is the tenant ID of the Azure AD directory. The tenant ID is an immutable and reliable identifier of the directory.','aadv1_iat':'Stores the time at which the token was issued. It is often used to measure token freshness.','aadv1_idp':'Records the identity provider that authenticated the subject of the token. This value is identical to the value of the Issuer claim unless the user account is in a different tenant than the issuer.','aadv1_ver':'Stores the version number of the token.','aadv1_oid':'Contains a unique identifier of an object in Azure AD. This value is immutable and cannot be reassigned or reused. Use the object ID to identify an object in queries to Azure AD.','aadv1_aud':'The intended recipient of the token. The application that receives the token must verify that the audience value is correct and reject any tokens intended for a different audience.','aadv1_amr':'Identifies how the subject of the token was authenticated.','aadv1_acr':'Indicates how the subject was authenticated, as opposed to the client in the Application Authentication Context Class Reference claim. A value of "0" indicates the end-user authentication did not meet the requirements of ISO/IEC 29115.','aadv2_preferred_username':'The primary username that represents the user in the v2.0 endpoint. It could be an email address, phone number, or a generic username without a specified format. Its value is mutable and might change over time. The profile scope is required in order to receive this claim.','google_email_verified':'True if the user\'s e-mail address has been verified; otherwise false.','b2c_family_name':'The user\'s surname (also known as last name).','google_at_hash':'Access token hash. Provides validation that the access token is tied to the identity token. If the ID token is issued with an access token in the server flow, this is always included. This can be used as an alternate mechanism to protect against cross-site request forgery attacks, but if you follow <a href="https://developers.google.com/identity/protocols/OpenIDConnect#createxsrftoken">Step 1</a> and <a href="https://developers.google.com/identity/protocols/OpenIDConnect#confirmxsrftoken">Step 3</a> it is not necessary to verify the access token.','google_hd':'The hosted G Suite domain of the user. Provided only if the user belongs to a hosted domain.','b2c_name':'The user\'s full name in displayable form including all name parts, possibly including titles and suffixes.','b2c_city':'The city in which the user is located.','aadv2_nonce':'The nonce is a strategy for mitigating token replay attacks. Your app can specify a nonce in an authorization request by using the nonce query parameter. The value you provide in the request is emitted in the ID token\'s nonce claim, unmodified. Your app can verify the value against the value it specified on the request, which associates the app\'s session with a specific ID token. Your app should perform this validation during the ID token validation process.','aadv2_email':'The primary email address associated with the user account, if one exists. Its value is mutable and might change over time. The email scope is required in order to receive this claim.','b2c_given_name':'The user\'s given name (also known as first name).','google_picture':'The URL of the user\'s profile picture. Might be provided when:<ul><li>The request scope included the string "profile"</li><li>The ID token is returned from a token refresh</li></ul>When picture claims are present, you can use them to update your app\'s user records. Note that this claim is never guaranteed to be present.','b2c_jobTitle':'The user\'s job title.','google_profile':'The URL of the user\'s profile page. Might be provided when:<ul><li>The request scope included the string "profile"</li><li>The ID token is returned from a token refresh</li></ul>When profile claims are present, you can use them to update your app\'s user records. Note that this claim is never guaranteed to be present.','aadv1_family_name':'Provides the last name, surname, or family name of the user as defined in the Azure AD user object.','google_email':'The user\'s email address. This may not be unique and is not suitable for use as a primary key. Provided only if your scope included the string "email".','b2c_newUser':'True if the user is registered during the authentication request that generated the token, false otherwise.','aadv1_groups':'Provides object IDs that represent the subject\'s group memberships. These values are unique (see Object ID) and can be safely used for managing access, such as enforcing authorization to access a resource. The groups included in the groups claim are configured on a per-application basis, through the "groupMembershipClaims" property of the application manifest. A value of null will exclude all groups, a value of "SecurityGroup" will include only Active Directory Security Group memberships, and a value of "All" will include both Security Groups and Office 365 Distribution Lists.','nonce':'The nonce passed in the request that must be verified by the client. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','exp':'The "exp" (expiration time) claim identifies the expiration time on or after which the JWT MUST NOT be accepted for processing. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','aud':'The "aud" (audience) claim identifies the recipients that the JWT is intended for. Each principal intended to process the JWT MUST identify itself with a value in the audience claim. If the principal processing the claim does not identify itself with a value in the "aud" claim when this claim is present, then the JWT MUST be rejected.  (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','iat':'The "iat" (issued at) claim identifies the time at which the JWT was issued. This claim can be used to determine the age of the JWT. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','iss':'The "iss" (issuer) claim identifies the principal that issued the JWT. The processing of this claim is generally application specific. The "iss" value is a case-sensitive string containing a StringOrURI value. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','nbf':'The "nbf" (not before) claim identifies the time before which the JWT MUST NOT be accepted for processing. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','sub':'The "sub" (subject) claim identifies the principal that is the subject of the JWT. The claims in a JWT are normally statements about the subject. The subject value MUST either be scoped to be locally unique in the context of the issuer or be globally unique. The processing of this claim is generally application specific. The "sub" value is a case-sensitive string containing a StringOrURI value. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','auth_time':'The time at which the user authorized. (<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>)','aadv1_roles':'Represents all application roles that the subject has been granted both directly and indirectly through group membership and can be used to enforce role-based access control. Application roles are defined on a per-application basis, through the appRoles property of the application manifest. The value property of each application role is the value that appears in the roles claim.','aadv1_appid':'Identifies the application that is using the token to access a resource. The application can act as itself or on behalf of a user. The application ID typically represents an application object, but it can also represent a service principal object in Azure AD.','b2c_idp':'The identity provider used by the user to authenticate.','b2c_iat':'The time at which the token was issued, represented in epoch time.','b2c_iss':'This claim identifies the security token service (STS) that constructs and returns the token. It also identifies the Azure AD directory in which the user was authenticated. Your app should validate the issuer claim to ensure that the token came from the v2.0 endpoint. It also should use the GUID portion of the claim to restrict the set of tenants that can sign in to the app.','b2c_oid':'The immutable identifier for the user account in the tenant. It can be used to perform authorization checks safely and as a key in database tables. This ID uniquely identifies the user across applications - two different applications signing in the same user will receive the same value in the oid claim. This means that it can be used when making queries to Microsoft online services, such as the Microsoft Graph. The Microsoft Graph will return this ID as the id property for a given user account.','b2c_acr':'The trust framework policy that was used to obtain the token. Not used in new policies anymore. Refer to <a href="https://docs.microsoft.com/en-us/azure/active-directory-b2c/active-directory-b2c-token-session-sso">this article</a> to learn more.','b2c_aud':'An audience claim identifies the intended recipient of the token. For Azure AD B2C, the audience is your app\'s Application ID, as assigned to your app in the app registration portal. Your app should validate this value and reject the token if it does not match.','b2c_sub':'This is a principal about which the token asserts information, such as the user of an app. This value is immutable and cannot be reassigned or reused. It can be used to perform authorization checks safely, such as when the token is used to access a resource. By default, the subject claim is populated with the object ID of the user in the directory. Refer to <a href="https://docs.microsoft.com/en-us/azure/active-directory-b2c/active-directory-b2c-token-session-sso">this article</a> to learn more.','b2c_ver':'The version of the ID token, as defined by Azure AD B2C.','b2c_tfp':'This is the name of the policy that was used to acquire the ID token.','b2c_nonce':'The nonce is a strategy for mitigating token replay attacks. Your app can specify a nonce in an authorization request by using the nonce query parameter. The value you provide in the request is emitted in the ID token\'s nonce claim, unmodified. Your app can verify the value against the value it specified on the request, which associates the app\'s session with a specific ID token. Your app should perform this validation during the ID token validation process.','b2c_state':'The state or province in which the user is located.','at_hash':'The access token hash is included in ID tokens when the ID token is issued with an OAuth 2.0 access token. It can be used to validate the authenticity of an access token. See the <a href="http://openid.net/specs/openid-connect-core-1_0.html">OpenID Connect specification</a> for more details on how to perform this validation.','google_name':'The user\'s full name, in a displayable form. Might be provided when:<ul><li>The request scope included the string "profile"</li><li>The ID token is returned from a token refresh</li></ul>When name claims are present, you can use them to update your app\'s user records. Note that this claim is never guaranteed to be present.','c_hash':'The code hash is included in ID tokens only when the ID token is issued with an OAuth 2.0 authorization code. It can be used to validate the authenticity of an authorization code. See the <a href="http://openid.net/specs/openid-connect-core-1_0.html">OpenID Connect specification</a> for more details on how to perform this validation.','b2c_postalCode':'The postal code of the user\'s address.','aadv1_unique_name':'Provides a human readable value that identifies the subject of the token. This value is not guaranteed to be unique within a tenant and is designed to be used only for display purposes.','aadv2_name':'The name claim provides a human-readable value that identifies the subject of the token. The value is not guaranteed to be unique, it is mutable, and it\'s designed to be used only for display purposes. The profile scope is required in order to receive this claim.','google_sub':'An identifier for the user, unique among all Google accounts and never reused. A Google account can have multiple emails at different points in time, but the sub value is never changed. Use sub within your application as the unique-identifier key for the user.','google_azp':'The client_id of the authorized presenter. This claim is only needed when the party requesting the ID token is not the same as the audience of the ID token. This may be the case at Google for hybrid apps where a web application and Android app have a different client_id but share the same project.','google_aud':'Identifies the audience that this ID token is intended for. It must be one of the OAuth 2.0 client IDs of your application.','google_iss':'The Issuer Identifier for the Issuer of the response. Always https://accounts.google.com or accounts.google.com for Google ID tokens.','aadv1_appidacr':'Indicates how the client was authenticated. For a public client, the value is 0. If client ID and client secret are used, the value is 1.'};
+    var issuingProvider = {
+    Unknown: 'unknown',
+    AADV1: 'aadv1',
+    AADV2: 'aadv2',
+    MSA: 'msa',
+    B2C: 'b2c',
+    IEF: 'ief',
+    Google: 'google'
+    }
+    var issuingProviderDescriptions =
+    {
+    'aadv1':
+    'This is an <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-token-and-claims">Azure AD V1</a> token.',
+    'aadv2':
+    'This is an <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-v2-tokens">Azure AD V2</a> token.',
+    'msa': 'This is a Microsoft Account token.',
+    'b2c':
+    'This is an <a href="https://docs.microsoft.com/en-us/azure/active-directory-b2c/active-directory-b2c-reference-tokens">Azure AD B2C</a> token.',
+    'ief': 'This token was issued using an Identity Experience Framework policy.',
+    'google':
+    'This token was issued by <a href="https://developers.google.com/identity/protocols/OpenIDConnect">Google</a>.'
+    };
+    $(document).ready(function () {
+    processJwt();
+    var inputEventName = /Trident/.test(navigator.userAgent) ? 'textinput' : 'input';
+    $(encodedTokenId).on(inputEventName,
+    function() {
+    processJwt();
+    });
+    if (window.location.hash &&
+    window.location.hash.length > 12) {
+    var queryKeyLength = 0;
+    if (window.location.hash.indexOf(id_token_url_hash) === 0) {
+    queryKeyLength = 10;
+    } else if (window.location.hash.indexOf(access_token_url_hash) === 0) {
+    queryKeyLength = 14;
+    }
+    if (queryKeyLength > 0) {
+    var tokenString = window.location.hash.substring(queryKeyLength);
+    var ampIndex = tokenString.indexOf('&');
+    tokenString = tokenString.substring(0, ampIndex !== -1 ? ampIndex : tokenString.length);
+    $(encodedTokenId).text(tokenString);
+    processJwt();
+    }
+    }
+    });
+    function processJwt() {
+    try {
+    var jwt = $(encodedTokenId).text();
+    if (jwt && jwt.trim().length > 0) {
+    var hasSignature = formatEncodedToken();
+    jwt = jwt.trim();
+    var decodedHeader = jwt_decode(jwt, { header: true });
+    var decodedClaims = jwt_decode(jwt.trim());
+    setIssuingDescription(decodedClaims);
+    setDecodedToken(decodedHeader, decodedClaims, hasSignature);
+    createClaimsTable(decodedClaims);
+    } else {
+    setIssuingDescription(null);
+    setDecodedToken(null, null);
+    createClaimsTable(null);
+    }
+    } catch (e) {
+    setIssuingDescription(null);
+    setDecodedToken(null, null);
+    createClaimsTable(null);
+    }
+    }
+    function setDecodedToken(decodedHeader, decodedClaims, hasSignature) {
+    if (!decodedHeader && !decodedClaims) {
+    $(decodedTokenId).empty();
+    return;
+    }
+    var headerJson = JSON.stringify(decodedHeader, null, 2);
+    var claimsJson = JSON.stringify(decodedClaims, null, 2);
+    var html = '<span class="jwtHeader">' + headerJson + '</span>';
+    html += '.<span class="jwtClaims">' + claimsJson + '</span>';
+    if (hasSignature) {
+    html += '.<span class="jwtSignature">[Signature]</span>';
+    }
+    $(decodedTokenId).html(html);
+    }
+    function setIssuingDescription(decodedClaims) {
+    if (!decodedClaims) {
+    $(issuingProviderDescriptionId).empty();
+    return;
+    }
+    var issuingProvider = getIssuingProvider(decodedClaims);
+    var issuingProviderDescription = issuingProviderDescriptions[issuingProvider];
+    if (issuingProviderDescription) {
+    $(issuingProviderDescriptionId).html(issuingProviderDescription);
+    } else {
+    $(issuingProviderDescriptionId).empty();
+    }
+    }
+    function formatEncodedToken() {
+    var encodedToken = $(encodedTokenId).text();
+    if (!encodedToken) return false;
+    var parts = encodedToken.split('.');
+    if (parts.length < 2 || parts.length > 3) return false;
+    var html = '<span class="jwtHeader">' + parts[0] + '</span>';
+    html += '.<span class="jwtClaims">' + parts[1] + '</span>';
+    if (parts.length === 3) {
+    html += '.<span class="jwtSignature">' + parts[2] + '</span>';
+    }
+    $(encodedTokenId).html(html);
+    return parts.length === 3;
+    }
+    function createClaimsTable(decodedToken) {
+    if (!decodedToken) {
+    $(idtokentbody).html(null);
+    return;
+    }
+    var issuingProvider = getIssuingProvider(decodedToken);
+    var html = '';
+    for (var claimType in decodedToken) {
+    var formatObject = formatValue(claimType, decodedToken[claimType]);
+    var formattedValue = formatObject.formattedValue;
+    var classes = formatObject.classes;
+    var description = getDescription(claimType, issuingProvider);
+    html += '<tr>';
+    html += '<td><span class="mono wrap">' + claimType + '</span></td>';
+    html += '<td><span class="' + classes + '">' + formattedValue + '</span></td>';
+    html += '<td>' + description + '</td>';
+    html += '</tr>';
+    }
+    $(idtokentbody).html(html);
+    }
+    function formatValue(claimType, value) {
+    if ((claimType === 'exp' || claimType === 'nbf' || claimType === 'iat' || claimType === 'auth_time') &&
+    typeof value === 'number') {
+    var d = new Date(0); // Must provide 0 to set the date to the epoch
+    d.setUTCSeconds(value);
+    return {
+    formattedValue: d,
+    classes: 'wrap'
+    };
+    }
+    // For GUIDs, https://, and other such identifiers etc.
+    if ((typeof value === 'string' &&
+    (isGuid(value) || value.indexOf('https:///') === 0 || value.indexOf('http://') === 0)) ||
+    claimType === 'tfp' ||
+    claimType === 'acr' ||
+    claimType === 'iss' ||
+    claimType === 'sub' ||
+    claimType === 'nonce' ||
+    claimType === 'aud') {
+    return {
+    formattedValue: value,
+    classes: 'mono nowrap'
+    };
+    }
+    return {
+    formattedValue: value,
+    classes: 'wrap'
+    };
+    }
+    function getDescription(claimType, issuingProvider) {
+    var key = issuingProvider + '_' + claimType;
+    var description = window.descriptions[key];
+    if (!description) {
+    description = window.descriptions[claimType];
+    }
+    if (!description) return '';
+    return description;
+    }
+    function getIssuingProvider(decodedToken) {
+    var issValue = decodedToken[iss];
+    if (!issValue) return '';
+    issValue = issValue.toLowerCase();
+    var tfpValue = decodedToken[tfp];
+    var acrValue = decodedToken[acr];
+    if (issValue.indexOf('https://login.microsoftonline.com/') === 0 && issValue.indexOf('2.0') > -1) {
+    if ((tfpValue && tfpValue.toLowerCase().indexOf(b2cPolicyPrefix) === 0) ||
+    (acrValue && acrValue.toLowerCase().indexOf(b2cPolicyPrefix) === 0)) {
+    return issuingProvider.B2C;
+    } else if ((tfpValue && tfpValue.toLowerCase().indexOf(iefPolicyPrefix) === 0) ||
+    (acrValue && acrValue.toLowerCase().indexOf(iefPolicyPrefix) === 0)) {
+    return issuingProvider.IEF;
+    }
+    return issuingProvider.AADV2;
+    }
+    if (issValue.indexOf('https://sts.windows.net/') === 0) {
+    return issuingProvider.AADV1;
+    }
+    if (issValue.indexOf('accounts.google.com') === 0 ||
+    issValue.indexOf('https://accounts.google.com/') === 0) {
+    return issuingProvider.Google;
+    }
+    return issuingProvider.Unknown;
+    }
+    function isGuid(value) {
+    var regex = /[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/i;
+    var match = regex.exec(value);
+    return match != null;
+    }
