@@ -2,7 +2,7 @@
 
 The purpose of this little project is to make it simple to test an OpenID connect application.
 The instructions below demonstrate AzureAD usage, but really this can work with any valid JWT token.
-This was inspired by [jwt.ms](http://jwt.ms). While jwt.ms works great for copy pasted tokens, it is not suitable to act as a reply URL. This project is.
+This was inspired by [jwt.ms](http://jwt.ms). While jwt.ms works great for copy pasted tokens, it is not suitable to act as a reply URL that accepts POST tokens. This project is.
 
 # Instructions!
 (view with screenshots here - https://winsmarts.com/relying-party-token-decoder-for-your-openid-testing-15de91a74225)
